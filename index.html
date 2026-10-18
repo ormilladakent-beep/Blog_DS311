@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Canteen Ledger That Lied</title>
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#E8EDEF;--paper:#F8FAFA;--ink:#14232E;--mute:#4F616C;--tape:#F2C230;--flag:#C8372D;--flagbg:#F6D9D5;--ok:#1F6B4F;--okbg:#D6EBE1;--line:#B9C5CB;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0F1A22;--paper:#16252F;--ink:#E6ECEF;--mute:#9FB0BA;--flag:#FF8A80;--flagbg:#4A2523;--ok:#7FD1AC;--okbg:#1B3D31;--line:#2F4350}}
+:root[data-theme="dark"]{--bg:#0F1A22;--paper:#16252F;--ink:#E6ECEF;--mute:#9FB0BA;--flag:#FF8A80;--flagbg:#4A2523;--ok:#7FD1AC;--okbg:#1B3D31;--line:#2F4350}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:1.1rem/1.75 "Source Serif 4",Georgia,serif}
+.tape{height:28px;background:repeating-linear-gradient(-45deg,#F2C230 0 16px,#14232E 16px 32px)}
+header,main,footer{max-width:46rem;margin:0 auto;padding:0 1.25rem}
+header{padding-top:2.5rem}
+h1,h2,h3,th,button,.stamp{font-family:"Special Elite","Courier New",monospace;font-weight:400}
+h1{font-size:clamp(2.2rem,7vw,3.6rem);line-height:1.1;margin:.2em 0 .3em}
+h2{font-size:1.7rem;line-height:1.25;margin:3rem 0 .5rem}
+h3{font-size:1.25rem;margin:2.2rem 0 .3rem}
+.sub{color:var(--mute);font-size:1rem}
+p{margin:.9rem 0}
+ul{padding-left:1.3rem}li{margin:.4rem 0}
+.stamp{display:inline-block;border:3px solid var(--flag);color:var(--flag);padding:.1rem .7rem;transform:rotate(-3deg);font-size:1.15rem}
+.wrap{overflow-x:auto;margin:1rem 0}
+table{border-collapse:collapse;width:100%;min-width:34rem;background:var(--paper);font-size:.93rem;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:.45rem .7rem;border-bottom:1px solid var(--line);vertical-align:top}
+th{border-bottom:2px solid var(--ink)}
+td.bad{background:var(--flagbg);color:var(--flag);font-weight:600}
+td.fixed{background:var(--okbg);color:var(--ok);font-weight:600}
+button{background:var(--ink);color:var(--bg);border:0;padding:.6rem 1.1rem;cursor:pointer;font-size:1rem}
+button:focus-visible{outline:3px solid var(--tape);outline-offset:3px}
+summary{cursor:pointer;font-family:"Special Elite","Courier New",monospace}
+pre{background:#14232E;color:#E6ECEF;padding:1rem;overflow-x:auto;font-size:.86rem;line-height:1.5;margin:1rem 0}
+code{font-family:"Courier New",monospace;font-size:.9em}
+.cap{color:var(--mute);font-size:.9rem;margin:.3rem 0 0}
+.log td:first-child{min-width:9rem}
+footer{padding:2rem 1.25rem 3rem;color:var(--mute);font-size:.92rem}
+@media (max-width:520px){body{font-size:1.02rem}h2{font-size:1.45rem}}
+</style>
+</head>
+<body>
+<div class="tape" aria-hidden="true"></div>
+<header>
+<h1>The Canteen Ledger That Lied</h1>
+<p class="sub">A data cleaning case file for DS311 Exploratory Data Analysis, Week 2: Data Wrangling and Data Cleaning</p>
+</header>
+<main>
+<p>Nobody broke into the canteen. Nothing was stolen. But the weekly sales report says one customer bought <strong>500 siomai</strong> in a single order, and the owner swears that never happened. Or did it?</p>
+<p>Most lessons on data cleaning start with a list of commands. I want to start with a question instead: <strong>what would a detective do?</strong> A detective never arrests the first suspicious person. They collect evidence, ask why something looks wrong, and only then decide what to do about it.</p>
+<p>That is the mindset behind data cleaning. So let's open the case. <em>(The ledger is made up for this story, but every problem in it is one you will meet in real data.)</em></p>
+
+<h2>Exhibit A: the ledger</h2>
+<p>A school canteen records its orders in a spreadsheet. Here is the raw export, exactly as the cashier typed it. The red cells are the clues I want to investigate.</p>
+<p><button id="tg" aria-pressed="false">Show the solved ledger</button> <span class="stamp" id="st">Unsolved</span></p>
+<div class="wrap"><table id="ld"><thead></thead><tbody></tbody></table></div>
+<p class="cap" id="cp"></p>
+
+<h2>First look: what does the evidence say?</h2>
+<p>Before changing anything, a detective just looks. Two quick commands tell us a lot.</p>
+<pre>df.info()
+
+RangeIndex: 8 entries, 0 to 7
+ #   Column   Non-Null Count  Dtype
+ 0   Order    8 non-null      int64
+ 1   Item     8 non-null      object
+ 2   Qty      8 non-null      int64
+ 3   Price    7 non-null      float64
+ 4   Date     8 non-null      object
+ 5   Payment  8 non-null      object</pre>
+<p><strong>What I noticed:</strong></p>
+<ul>
+<li><code>Price</code> has only 7 non-null values out of 8. One price is missing.</li>
+<li><code>Date</code> is listed as <code>object</code>, which means pandas sees it as plain text, not as real dates. That is why the dates can be written in three different styles without any error.</li>
+</ul>
+<pre>df.describe()
+
+        Order     Qty       Price
+count   8.0       8.0       7.0
+mean    1004.5    63.5      30.71
+std     2.45      176.38    10.97
+min     1001.0    -2.0      25.0
+25%     1002.75   1.0       25.0
+50%     1004.5    1.5       25.0
+75%     1006.25   2.25      30.0
+max     1008.0    500.0     55.0</pre>
+<p><strong>What I noticed:</strong></p>
+<ul>
+<li><code>Qty</code> has a minimum of <strong>-2</strong> and a maximum of <strong>500</strong>. A negative quantity and a huge quantity are both worth investigating.</li>
+<li>The mean <code>Qty</code> is 63.5, but the median is only 1.5. One order is dragging the average far away from what a typical order looks like, so I shouldn't trust the mean alone.</li>
+<li><code>describe()</code> even gave me an average order number (1004.5). That's meaningless, because an order number is just a label, not something you can average.</li>
+</ul>
+
+<h2>Wrangling is the investigation. Cleaning is one step of it.</h2>
+<p>Many students use "data wrangling" and "data cleaning" as if they mean the same thing. In our detective story the difference is easy to see.</p>
+<ul>
+<li><strong>Data wrangling</strong> is the whole investigation: getting the ledger, reading it, structuring it, fixing it, checking it, and handing over a report someone can trust.</li>
+<li><strong>Data cleaning</strong> is the part where we examine each piece of evidence and correct or remove what is wrong.</li>
+</ul>
+<p>All cleaning is wrangling, but not all wrangling is cleaning. Reshaping a table, or joining this ledger to a menu list, is wrangling even though nothing is "dirty."</p>
+
+<h2>The five clues</h2>
+<p>Every clue follows the same routine: <strong>spot it, ask why, then decide.</strong></p>
+
+<h3>Clue 1: the twin orders</h3>
+<p>Orders 1003 and 1004 are both Koykoy, quantity 1, price 30, same date, same payment. Only the order number is different.</p>
+<p>Are they a double entry, or two hungry students who ordered the same thing? Plain <code>drop_duplicates()</code> compares every column, including <code>Order</code>, so it would miss these two rows. To catch them, I told it to ignore <code>Order</code> by listing only the other columns in <code>subset=[...]</code>.</p>
+<p>I decided it was a double entry, so I kept 1003 and dropped 1004. The order numbers are next to each other and everything else matches. In real life I would ask the cashier before deleting anything.</p>
+<pre>df = df.drop_duplicates(subset=["Item", "Qty", "Price", "Date", "Payment"]).copy()</pre>
+
+<h3>Clue 2: one siomai, three disguises</h3>
+<p>"Siomai", "siomai" and "SIOMAI" look the same to a person, but pandas counts them as three different items. A report grouping sales by item would split one best seller into three small ones. The same goes for "GCash" and "gcash".</p>
+<p>I standardized the spelling with <code>.str.strip()</code>, <code>.str.title()</code> and <code>.str.lower()</code>. Doing this before the duplicate check matters, because rows that are really the same can slip past it if they only differ in capital letters.</p>
+<pre>df["Item"] = df["Item"].str.strip().str.title()
+df["Payment"] = df["Payment"].str.strip().str.lower().replace({"gcash": "GCash", "cash": "Cash"})</pre>
+
+<h3>Clue 3: dates in three outfits</h3>
+<p>The ledger has <code>2026-09-01</code>, <code>09/01/2026</code> and <code>September 3, 2026</code>. Converting them all to real dates with <code>pd.to_datetime</code> lets me sort, filter by week, and calculate gaps between orders.</p>
+<p>One thing to watch for: is <code>09/05/2026</code> September 5 or May 9? The nearby rows show it is September, but with real data I would check how the file was made before trusting the conversion.</p>
+<pre>df["Date"] = pd.to_datetime(df["Date"], format="mixed")</pre>
+
+<h3>Clue 4: the missing price, and why the median would be wrong</h3>
+<p>Order 1007 (Rice Meal) has no price. A common move is to fill gaps with the median. But the median price in this ledger is 25, and a rice meal doesn't cost 25. Order 1008 shows that Rice Meal costs <strong>55</strong>.</p>
+<p>So I filled the gap with the price from the same item. A missing value is often better fixed with a trustworthy source than with a statistic. I would use the median only when I have nothing better.</p>
+<pre>print(df["Price"].median())   # 25.0, which is wrong for a Rice Meal
+df["Price"] = df["Price"].fillna(df.groupby("Item")["Price"].transform("first"))</pre>
+
+<h3>Clue 5: the two suspicious quantities</h3>
+<p>Order 1005 has a quantity of <strong>-2</strong> and order 1006 has a quantity of <strong>500</strong>. A beginner's rule might say "negative is impossible and 500 is an outlier, so delete both."</p>
+<p>But an unusual value is a <strong>lead, not a verdict.</strong> In this story the cashier told me:</p>
+<ul>
+<li>The -2 was a <strong>refund</strong>. Two siomai were returned.</li>
+<li>The 500 was a <strong>bulk order</strong> for a school event.</li>
+</ul>
+<p>Deleting the first would hide the refund, and deleting the second would erase the canteen's biggest sale. So I kept both, added an <code>is_refund</code> column for the refund, and added a "bulk order" note for the big one.</p>
+<pre>df["is_refund"] = df["Qty"] &lt; 0
+df.loc[df["Qty"] &gt; 100, "note"] = "bulk order"</pre>
+<p>Scroll back to Exhibit A and press the button to see the solved ledger, with the green cells showing what changed. The twin order 1004 is gone, so it can't be highlighted.</p>
+
+<h2>The case log</h2>
+<p>A good detective writes down every decision. A cleaning log lets a teammate (or me, three weeks from now) understand and reverse any choice.</p>
+<div class="wrap"><table class="log"><thead><tr><th>Problem</th><th>Action</th><th>Why</th></tr></thead><tbody>
+<tr><td>Twin Koykoy orders 1003 and 1004</td><td>Dropped 1004 and kept 1003, checking every column except <code>Order</code></td><td>Same item, quantity, price, date and payment, and the order numbers are next to each other, so it looks like a double entry. In real life I would confirm with the cashier first.</td></tr>
+<tr><td>Item and payment spelling</td><td>Standardized <code>Item</code> to "Siomai" and <code>Payment</code> to "Cash" or "GCash"</td><td>pandas counts "Siomai", "siomai" and "SIOMAI" as different items, which would split the sales of one product into three groups.</td></tr>
+<tr><td>Mixed date formats</td><td>Converted <code>Date</code> to real dates with <code>pd.to_datetime</code></td><td>The dates were plain text in three styles, so I couldn't sort or filter them. Now they all look like 2026-09-XX.</td></tr>
+<tr><td>Missing price on order 1007</td><td>Filled it with 55, the Rice Meal price from order 1008</td><td>The median price is 25, which is wrong for a rice meal. A price from the same item is more trustworthy than a statistic.</td></tr>
+<tr><td>Qty of -2</td><td>Kept it and added an <code>is_refund</code> column</td><td>A negative quantity is probably a returned order. Deleting it would hide a real transaction.</td></tr>
+<tr><td>Qty of 500</td><td>Kept it and added a "bulk order" note</td><td>It is unusual but possible, such as an order for a school event. Deleting it would erase the canteen's biggest sale.</td></tr>
+</tbody></table></div>
+
+<h2>What the case taught me</h2>
+<p>The commands I used (<code>drop_duplicates</code>, <code>to_datetime</code>, <code>fillna</code>) are quick to learn. The hard part is the thinking around them: spot the problem, ask why it happened, choose the least harmful fix, and write it down. If the data can't answer the "why," ask the person who made it.</p>
+<p>The ledger didn't lie on purpose. People type quickly, spell things differently, and sometimes record a refund as a negative number. The goal isn't to scold the data but to understand it well enough that my conclusions can be trusted.</p>
+<p><span class="stamp">Case closed</span></p>
+<h2>Appendix: the full code from my Colab notebook</h2>
+<p>These are all the cells I ran, in order, so the whole investigation can be reproduced.</p>
+<details><summary>Show the full code</summary>
+<pre># --- Exhibit A: data and red clue cells ---
+import pandas as pd
+
+data = {
+    "Order": [1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008],
+    "Item": ["Siomai", "siomai", "Koykoy", "Koykoy", "Siomai", "SIOMAI", "Rice Meal", "Rice Meal"],
+    "Qty": [3, 2, 1, 1, -2, 500, 1, 2],
+    "Price": [25, 25, 30, 30, 25, 25, None, 55],
+    "Date": ["2026-09-01", "09/01/2026", "2026-09-02", "2026-09-02", "September 3, 2026", "2026-09-04", "2026-09-04", "09/05/2026"],
+    "Payment": ["Cash", "GCash", "Cash", "Cash", "Cash", "gcash", "Cash", "Cash"],
+}
+
+df = pd.DataFrame(data)
+
+# cells to highlight as clues: (row, column)
+flags = [(1,"Item"),(1,"Date"),(3,"Order"),(4,"Qty"),(4,"Date"),
+         (5,"Item"),(5,"Qty"),(5,"Payment"),(6,"Price"),(7,"Date")]
+
+def paint(d):
+    out = pd.DataFrame("", index=d.index, columns=d.columns)
+    for r, c in flags:
+        out.loc[r, c] = "background-color:#F6D9D5; color:#C8372D; font-weight:bold"
+    return out
+
+df.style.apply(paint, axis=None).format({"Price": "{:.0f}"}, na_rep="(empty)")
+
+# --- First look: info ---
+df.info()
+
+# --- First look: describe ---
+df.describe()
+
+# --- Clue 1: twin orders ---
+df = df.drop_duplicates(subset=["Item", "Qty", "Price", "Date", "Payment"]).copy()
+df
+
+# --- Clue 2: spelling ---
+df["Item"] = df["Item"].str.strip().str.title()
+df["Payment"] = df["Payment"].str.strip().str.lower().replace({"gcash": "GCash", "cash": "Cash"})
+df
+
+# --- Clue 3: dates ---
+df["Date"] = pd.to_datetime(df["Date"], format="mixed")
+df.info()
+df
+
+# --- Clue 4: missing price ---
+print(df["Price"].median())   # 25.0, which is wrong for a Rice Meal
+
+df["Price"] = df["Price"].fillna(df.groupby("Item")["Price"].transform("first"))
+df
+
+# --- Clue 5: refund and bulk order ---
+df["is_refund"] = df["Qty"] &lt; 0
+df.loc[df["Qty"] &gt; 100, "note"] = "bulk order"
+df
+</pre></details>
+</main>
+<footer>
+<p>Written for DS311 Exploratory Data Analysis. The canteen ledger is a made-up dataset.</p>
+<p>The draft text was written with help from AI; the data, code, and final edits are mine.</p>
+</footer>
+<script>
+(function(){
+var H=["Order","Item","Qty","Price","Date","Payment"],HC=H.concat(["is_refund","note"]);
+var raw=[[1001,"Siomai",3,25,"2026-09-01","Cash"],[1002,"siomai",2,25,"09/01/2026","GCash"],[1003,"Koykoy",1,30,"2026-09-02","Cash"],[1004,"Koykoy",1,30,"2026-09-02","Cash"],[1005,"Siomai",-2,25,"September 3, 2026","Cash"],[1006,"SIOMAI",500,25,"2026-09-04","gcash"],[1007,"Rice Meal",1,"(empty)","2026-09-04","Cash"],[1008,"Rice Meal",2,55,"09/05/2026","Cash"]];
+var rf=[[1,1],[1,4],[3,0],[4,2],[4,4],[5,1],[5,2],[5,5],[6,3],[7,4]];
+var cl=[[1001,"Siomai",3,25,"2026-09-01","Cash",false,""],[1002,"Siomai",2,25,"2026-09-01","GCash",false,""],[1003,"Koykoy",1,30,"2026-09-02","Cash",false,""],[1005,"Siomai",-2,25,"2026-09-03","Cash",true,""],[1006,"Siomai",500,25,"2026-09-04","GCash",false,"bulk order"],[1007,"Rice Meal",1,55,"2026-09-04","Cash",false,""],[1008,"Rice Meal",2,55,"2026-09-05","Cash",false,""]];
+var cf=[[1,1],[1,4],[3,4],[3,6],[4,1],[4,5],[4,7],[5,3],[6,4]];
+var th=document.querySelector("#ld thead"),tb=document.querySelector("#ld tbody"),b=document.getElementById("tg"),s=document.getElementById("st"),c=document.getElementById("cp"),on=false;
+function draw(){
+var hd=on?HC:H,rows=on?cl:raw,fl=on?cf:rf;
+th.innerHTML="<tr>"+hd.map(function(h){return"<th>"+h+"</th>"}).join("")+"</tr>";
+tb.innerHTML="";
+rows.forEach(function(r,i){var tr=document.createElement("tr");
+r.forEach(function(v,j){var td=document.createElement("td");td.textContent=String(v);
+if(fl.some(function(f){return f[0]===i&&f[1]===j}))td.className=on?"fixed":"bad";tr.appendChild(td)});
+tb.appendChild(tr)});
+b.textContent=on?"Show the raw ledger":"Show the solved ledger";
+b.setAttribute("aria-pressed",on);
+s.textContent=on?"Solved":"Unsolved";
+c.textContent=on?"Green cells show what changed. Order 1004 was dropped, so it no longer appears.":"Red cells are the clues I want to investigate."}
+b.addEventListener("click",function(){on=!on;draw()});
+draw()})();
+</script>
+</body>
+</html>
